@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block hero %}
+<div id="hero" class="carousel slide carousel-fade hero" data-bs-ride="carousel">
+    <div class="carousel-inner">
+        {% for image, title, category in [('vege.jpg', 'Fresh vegetables', 'vegetables'),
+                                          ('fruity.jpg', 'Fresh fruits', 'fruits'),
+                                          ('soap.jpg', 'Homemade products', 'handmade')] %}
+        <div class="carousel-item {{ 'active' if loop.first }}">
+            <img src="{{ url_for('static', filename=image) }}" class="d-block w-100" alt="{{ title }}">
+            <div class="carousel-caption">
+                <h1 class="display-4 fw-bold">{{ title }}</h1>
+                <p class="lead">Straight from local farmers and makers</p>
+                <a href="{{ url_for('shop.category', category=category) }}" class="btn btn-success btn-lg">Shop now</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <button class="carousel-control-prev" type="button" data-bs-target="#hero" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
+    <button class="carousel-control-next" type="button" data-bs-target="#hero" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
+</div>
+{% endblock %}
+{% block content %}
+<h2 class="mb-4">Categories</h2>
+<div class="row row-cols-2 row-cols-md-4 g-4">
+    {% for key, (label, image) in categories.items() %}
+    <div class="col">
+        <a href="{{ url_for('shop.category', category=key) }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm category-card text-center h-100">
+                <img src="{{ url_for('static', filename=image) }}" class="card-img-top" alt="{{ label }}">
+                <div class="card-body"><h5 class="card-title mb-0 text-dark">{{ label }}</h5></div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

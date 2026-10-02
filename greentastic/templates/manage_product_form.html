@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "macros.html" import field %}
+{% block title %}New product{% endblock %}
+{% block content %}
+<div class="card border-0 shadow-sm col-lg-6"><div class="card-body p-4">
+    <h2 class="mb-4">New product</h2>
+    <form method="post">
+        <div class="mb-3">
+            <label class="form-label" for="category">Category</label>
+            <select class="form-select" id="category" name="category">
+                {% for key, (label, _) in categories.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+            </select>
+        </div>
+        {{ field('Name', 'name') }}
+        {{ field('Description', 'description', required=False) }}
+        {{ field('Price in €', 'price', 'number', attrs='step=0.01 min=0') }}
+        {{ field('Stock', 'stock', 'number', attrs='step=1 min=0') }}
+        <div class="mb-3">
+            <label class="form-label" for="unit">Unit</label>
+            <select class="form-select" id="unit" name="unit"><option>kg</option><option>pcs</option></select>
+        </div>
+        {{ field('Image file name (must exist in static/<category>/, e.g. mango.jpg)', 'image') }}
+        <button type="submit" class="btn btn-success">Add product</button>
+    </form>
+</div></div>
+{% endblock %}

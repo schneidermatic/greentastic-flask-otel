@@ -1,0 +1,207 @@
+#!/bin/sh
+#******************************************************************************
+# Copyright 2021 the original author or authors.                              *
+#                                                                             *
+# Licensed under the Apache License, Version 2.0 (the "License");             *
+# you may not use this file except in compliance with the License.            *
+# You may obtain a copy of the License at                                     *
+#                                                                             *
+# http://www.apache.org/licenses/LICENSE-2.0                                  *
+#                                                                             *
+# Unless required by applicable law or agreed to in writing, software         *
+# distributed under the License is distributed on an "AS IS" BASIS,           *
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.    *
+# See the License for the specific language governing permissions and         *
+# limitations under the License.                                              *
+#******************************************************************************/
+
+
+#==============================================================================
+# SCRIPT:   .xrc
+# PURPOSE:  Shortcuts for the Greentastic demo.  Usage:  source .xrc  then  x_up
+#==============================================================================
+export PROJECT_HOME="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+set -a; . "$PROJECT_HOME/.env"; set +a      # APP_PORT, ELASTIC_PASSWORD, demo accounts, ...
+
+_x_compose() { docker compose -f "$PROJECT_HOME/docker-compose.yml" "$@"; }
+
+##----------------------------------------
+## START / STOP
+##----------------------------------------
+x_up() {                # build and start everything, wait until it works
+  if ! _x_compose up -d --build; then
+    _x_show_failed
+    return 1
+  fi
+  x_check
+  x_show_details
+}
+
+_x_show_failed() {      # state and last log lines of every container that is not up and well
+  local svc state health code
+  echo "==== container states:" >&2
+  _x_compose ps -a >&2
+  _x_compose ps -a --format '{{.Service}} {{.State}} {{.Health}} {{.ExitCode}}' |
+  while read -r svc state health code; do
+    # healthy/running containers and the one-off 'setup' that finished with 0 are fine
+    if [ "$health" = "unhealthy" ] || [ "$state" = "restarting" ] || [ "$state" = "dead" ] ||
+       { [ "$state" = "exited" ] && [ "$code" != "0" ]; }; then
+      echo "==== $svc: $state $health (exit code $code) - last log lines:" >&2
+      _x_compose logs --no-log-prefix --tail 20 "$svc" >&2
+    fi
+  done
+  echo "Old data from an earlier version? 'x_down' deletes all volumes, then run 'x_up' again." >&2
+}
+
+x_stop()    { _x_compose --profile loadtest down; }            # stop, keep the data
+x_down() {              # stop and DELETE all data (database, search index, telemetry, certificates)
+  _x_compose --profile loadtest down -v --remove-orphans
+  # also volumes left over from earlier versions of this project (compose only removes the ones it still knows)
+  local leftovers
+  leftovers="$(docker volume ls -q --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}")"
+  [ -n "$leftovers" ] && echo "removing leftover volumes:" $leftovers && docker volume rm $leftovers
+  return 0
+}
+x_restart() { _x_compose restart app; }
+x_ps()      { _x_compose ps -a; }
+x_logs()    { _x_compose logs -f "${1:-app}"; }   # x_logs [app|postgres|redis|es01|kibana|edot-collector|setup]
+
+x_banner() {
+  cat << 'EOM'
+  ____                     _            _   _
+ / ___|_ __ ___  ___ _ __ | |_ __ _ ___| |_(_) ___
+| |  _| '__/ _ \/ _ \ '_ \| __/ _` / __| __| |/ __|
+| |_| | | |  __/  __/ | | | || (_| \__ \ |_| | (__
+ \____|_|  \___|\___|_| |_|\__\__,_|___/\__|_|\___|
+---------------------------------------------------
+EOM
+}
+
+x_show_details() {
+  x_banner
+  cat << EOM
+URL:       http://localhost:${APP_PORT}
+CUSTOMER:  ${CUSTOMER_USER} / ${CUSTOMER_PASSWORD}
+SELLER:    ${SELLER_USER} / ${SELLER_PASSWORD}
+ADMIN:     ${ADMIN_USER} / ${ADMIN_PASSWORD}
+LOGIN:     http://localhost:${APP_PORT}/login   (one login page for all roles)
+KIBANA:    https://localhost:${KIBANA_PORT}   user elastic / ${ELASTIC_PASSWORD}  -> Observability -> Applications -> greentastic
+ES:        https://localhost:${ES_PORT}   (product search + telemetry)
+OTLP:      localhost:${OTLP_GRPC_PORT} (gRPC), localhost:${OTLP_HTTP_PORT} (HTTP)  -> edot-collector
+LOAD:      x_locust (web UI http://localhost:${LOCUST_PORT})   x_locust_run [users] [spawn/s] [time]   x_load
+TOOLS:     x_otel_status  x_status  x_psql  x_redis  x_es  x_logs  x_ls
+EOM
+}
+
+##----------------------------------------
+## CHECKS
+##----------------------------------------
+_x_wait() {             # _x_wait <label> <seconds> <command...>: retry the command once per second
+  local label="$1" seconds="$2" i; shift 2
+  printf 'WAIT    %s ' "$label"
+  for i in $(seq 1 "$seconds"); do
+    if "$@" >/dev/null 2>&1; then printf '\rOK      %s     \n' "$label"; return 0; fi
+    [ $((i % 5)) -eq 0 ] && printf '.'          # a dot every 5 seconds, so you see it is still waiting
+    sleep 1
+  done
+  printf '\rFAILED  %s  (after %ss)\n' "$label" "$seconds" >&2
+  return 1
+}
+
+_x_app_up()        { _x_compose exec -T app python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"; }
+_x_has_products()  { [ "$(x_psql -tAc 'SELECT count(*) FROM products')" -gt 0 ]; }
+_x_es_healthy()    { x_es _cluster/health | grep -Eq '"status":"(green|yellow)"'; }   # yellow = fine on a single node
+_x_search_filled() { x_es greentastic-products/_count | grep -q '"count":[1-9]'; }
+_x_collector_up()  { _x_compose exec -T edot-collector bash -c '</dev/tcp/localhost/4317'; }
+_x_kibana_up()     { curl -sk -I "https://localhost:${KIBANA_PORT}" | grep -qE 'HTTP/[0-9.]+ 302'; }
+
+x_check() {             # is every part of the solution working?
+  if ! _x_wait "web     app answers inside its container" 60 _x_app_up; then
+    echo "        The app container is not serving. Its state and last log lines:" >&2
+    _x_compose ps -a app >&2
+    _x_compose logs --tail 30 app >&2
+    return 1
+  fi
+  if ! _x_wait "web     reachable from this shell: http://localhost:${APP_PORT}" 10 curl -s -o /dev/null "http://localhost:${APP_PORT}/"; then
+    echo "        The app runs, but localhost:${APP_PORT} does not reach it from here." >&2
+    echo "        Is curl installed? Is port ${APP_PORT} published?  ->  $(_x_compose port app 8000 2>&1)" >&2
+  fi
+  _x_wait "db      PostgreSQL has products" 30 _x_has_products
+  _x_wait "redis   answers PING" 30 _x_compose exec -T redis redis-cli ping
+  _x_wait "elasticsearch cluster healthy (needs about a minute to start)" 180 _x_es_healthy
+  _x_wait "search  product index filled" 120 _x_search_filled
+  _x_wait "otel    EDOT collector accepts OTLP on port 4317" 60 _x_collector_up
+  _x_wait "kibana  https://localhost:${KIBANA_PORT}" 300 _x_kibana_up
+}
+
+##----------------------------------------
+## LOOK INSIDE
+##----------------------------------------
+x_psql()  { _x_compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"; }    # x_psql -c 'SELECT * FROM products'
+x_redis() { _x_compose exec -T redis redis-cli "$@"; }                           # x_redis keys '*'
+x_es()    { _x_compose exec -T es01 curl -s --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD}" "https://localhost:9200/${1:-}"; echo; }   # x_es '_cat/indices?v'
+
+x_status() {            # what is stored where
+  echo "---- PostgreSQL (rows per table) ----"
+  x_psql -c "SELECT 'users' AS table, count(*) FROM users UNION ALL SELECT 'products', count(*) FROM products
+             UNION ALL SELECT 'cart_items', count(*) FROM cart_items UNION ALL SELECT 'orders', count(*) FROM orders
+             UNION ALL SELECT 'order_items', count(*) FROM order_items"
+  echo "---- Redis (cached product lists) ----"
+  x_redis keys 'products:*'
+  echo "---- Elasticsearch (indexed products) ----"
+  x_es greentastic-products/_count
+}
+
+x_otel_status() {       # how many telemetry documents arrived, per OpenTelemetry data stream
+  x_es '_cat/indices/*otel*?h=index,docs.count&s=index&expand_wildcards=all&v'
+}
+
+x_reindex() { _x_compose exec -T app flask --app greentastic reindex; }   # rebuild the search index
+x_test()    { _x_compose exec -T app python -m pytest -q tests; }        # run the unit tests in the container
+
+##----------------------------------------
+## GENERATE TRAFFIC: x_load [count=50] [pause=0.3]  - produces traces, metrics and logs
+##   browsing, searches (some with typos), failed logins, 404s, simulated errors, every 5th call a complete order
+##----------------------------------------
+x_load() {
+  local n="${1:-50}" pause="${2:-0.3}" base="http://localhost:${APP_PORT}" jar i path code
+  jar="$(mktemp)"
+  curl -s -o /dev/null -c "$jar" -d "username=${CUSTOMER_USER}&password=${CUSTOMER_PASSWORD}" "$base/login"
+  local paths=(/ /category/fruits /category/vegetables /category/handmade /category/handcraft
+               "/search?q=apple" "/search?q=tomatoe" "/search?q=cokies" "/api/suggest?q=ba" "/api/suggest?q=ch"
+               /cart /orders /about /category/unknown /does-not-exist
+               /api/simulate/slow /api/simulate/error /api/simulate/db-error /api/simulate/timeout)
+  for i in $(seq 1 "$n"); do
+    if [ $((i % 5)) -eq 0 ]; then         # a complete order: add a random product, then check out
+      curl -s -o /dev/null -b "$jar" -d "product_id=$((RANDOM % 29 + 1))&quantity=$((RANDOM % 3 + 1))" "$base/cart/add"
+      path="POST /checkout"
+      code=$(curl -s -o /dev/null -b "$jar" -w '%{http_code}' \
+             -d "name=Load+Test&street=Main+1&city=Demo&payment=cash+on+delivery" "$base/checkout")
+    elif [ $((i % 7)) -eq 0 ]; then       # a failed login
+      path="POST /login (wrong password)"
+      code=$(curl -s -o /dev/null -w '%{http_code}' -d "username=${CUSTOMER_USER}&password=wrong" "$base/login")
+    else
+      path="${paths[RANDOM % ${#paths[@]}]}"
+      code=$(curl -s -o /dev/null -b "$jar" -w '%{http_code}' "$base$path")
+    fi
+    printf '%3d/%d  %-30s -> %s\n' "$i" "$n" "$path" "$code"
+    sleep "$pause"
+  done
+  rm -f "$jar"
+}
+
+##----------------------------------------
+## LOAD TEST WITH LOCUST (loadtest/locustfile.py) against the REST API (/api/...)
+##----------------------------------------
+x_locust() {            # start Locust with its web UI: choose users and spawn rate there, watch the statistics
+  _x_compose --profile loadtest up -d locust && echo "Locust web UI: http://localhost:${LOCUST_PORT}"
+}
+
+x_locust_run() {        # headless run: x_locust_run [users=20] [spawn rate/s=5] [duration=2m], prints the summary
+  _x_compose --profile loadtest run --rm --no-deps locust -f /mnt/locust/locustfile.py --host http://app:8000 \
+    --headless -u "${1:-20}" -r "${2:-5}" -t "${3:-2m}" --only-summary
+}
+
+x_locust_stop() { _x_compose --profile loadtest stop locust; }
+
+x_ls() { declare -F | grep -o ' x_.*' | tr -d ' '; }

@@ -1,0 +1,24 @@
+/* Small additions to Bootstrap: brand colour, card hover effect, fixed image heights. */
+:root { --bs-success: #2f9e44; --bs-success-rgb: 47, 158, 68; }
+body { background-color: #f6f8f6; }
+a { color: #2f9e44; }
+
+.bg-greentastic { background: linear-gradient(90deg, #1b6b2e, #2f9e44); }
+.navbar-brand { font-weight: 700; }
+.btn-success { --bs-btn-bg: #2f9e44; --bs-btn-border-color: #2f9e44; --bs-btn-hover-bg: #27863a; --bs-btn-hover-border-color: #27863a; }
+
+.hero .carousel-item img { height: 460px; object-fit: cover; filter: brightness(.55); }
+.hero .carousel-caption { bottom: 25%; }
+
+.product-card, .category-card { transition: transform .15s, box-shadow .15s; }
+.product-card:hover, .category-card:hover { transform: translateY(-4px); box-shadow: 0 .75rem 1.5rem rgba(0, 0, 0, .12) !important; }
+.product-card .card-img-top { height: 200px; object-fit: cover; }
+.category-card img { height: 160px; object-fit: cover; }
+.thumb { width: 64px; height: 48px; object-fit: cover; border-radius: .375rem; }
+.auth-image { object-fit: cover; }
+
+.search-form { max-width: 640px; }
+#search-suggestions { z-index: 1050; top: 100%; margin-top: .25rem; cursor: pointer; }
+
+footer a { text-decoration: none; }
+footer a:hover { text-decoration: underline; }

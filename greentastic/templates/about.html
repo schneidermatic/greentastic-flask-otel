@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+{% block content %}
+<div class="row align-items-center g-5">
+    <div class="col-md-5"><img src="{{ url_for('static', filename='about.jpeg') }}" class="img-fluid rounded shadow" alt="Farmers market"></div>
+    <div class="col-md-7">
+        <h1 class="mb-3">What we do</h1>
+        <p>Greentastic connects farmers and makers directly with their customers: sellers list their products,
+           customers browse, order and pick them up or get them delivered.</p>
+        <p>Cutting out the middlemen gives farmers a fair price and customers fresh products for less.</p>
+        <p class="text-muted small">This is a demo application used as an example for observability with OpenTelemetry.</p>
+    </div>
+</div>
+{% endblock %}

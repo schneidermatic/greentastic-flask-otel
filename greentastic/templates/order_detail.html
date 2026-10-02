@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "macros.html" import table %}
+{% block title %}Order #{{ order.id }}{% endblock %}
+{% block content %}
+{% set editable = order.status == 'new' %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">Order #{{ order.id }} <span class="badge text-bg-secondary fs-6 align-middle">{{ order.status }}</span></h1>
+    <a href="{{ url_for('shop.order_list') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> My orders</a>
+</div>
+<p class="text-muted">Placed on {{ order.created_at.strftime('%Y-%m-%d at %H:%M') }}
+   {% if editable %}- you can still change or delete this order.{% endif %}</p>
+
+<form method="post">
+    <div class="row g-4">
+        <div class="col-lg-7">
+            {% call table(['Product', 'Price', 'Quantity', 'Amount']) %}
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.product_name }}</td><td>{{ item.price | euro }}</td>
+                    <td style="width: 8rem">
+                        {% if editable %}
+                        <input type="number" class="form-control form-control-sm" name="quantity_{{ item.id }}" value="{{ item.quantity }}" min="0" aria-label="Quantity">
+                        {% else %}{{ item.quantity }}{% endif %}
+                    </td>
+                    <td>{{ item.amount | euro }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted py-4">This order has no products left.</td></tr>
+                {% endfor %}
+                <tr class="fw-bold"><td colspan="3" class="text-end">Total</td><td>{{ items | sum(attribute='amount') | euro }}</td></tr>
+            {% endcall %}
+            {% if editable %}<p class="small text-muted mt-2">Set a quantity to 0 to remove the product.</p>{% endif %}
+        </div>
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm"><div class="card-body p-4">
+                <h5 class="mb-3">Delivery and payment</h5>
+                {% for label, name in [('Full name', 'name'), ('Street and number', 'street'), ('City', 'city')] %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ name }}">{{ label }}</label>
+                    <input class="form-control" id="{{ name }}" name="{{ name }}" value="{{ order[name] }}" required {{ 'disabled' if not editable }}>
+                </div>
+                {% endfor %}
+                <label class="form-label" for="payment">Payment</label>
+                <select class="form-select mb-3" id="payment" name="payment" {{ 'disabled' if not editable }}>
+                    {% for value in ['cash on delivery', 'credit card (fake)'] %}
+                    <option value="{{ value }}" {{ 'selected' if value == order.payment }}>{{ value | capitalize }}</option>
+                    {% endfor %}
+                </select>
+                {% if editable %}
+                <button type="submit" class="btn btn-success w-100"><i class="bi bi-check-lg"></i> Save changes</button>
+                {% endif %}
+            </div></div>
+        </div>
+    </div>
+</form>
+
+{% if editable %}
+<form method="post" action="{{ url_for('shop.order_delete', order_id=order.id) }}" class="mt-4"
+      onsubmit="return confirm('Delete order #{{ order.id }}?')">
+    <button class="btn btn-outline-danger"><i class="bi bi-trash"></i> Delete order</button>
+</form>
+{% endif %}
+{% endblock %}

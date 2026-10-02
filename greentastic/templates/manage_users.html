@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "macros.html" import table %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<h1 class="mb-4">Users</h1>
+{% call table(['Name', 'Email', 'Role', '']) %}
+    {% for u in users %}
+    <tr>
+        <td class="fw-semibold">{{ u.username }}</td><td>{{ u.email }}</td><td><span class="badge text-bg-light border">{{ u.role }}</span></td>
+        <td class="text-end">
+            {% if u.username != session.username %}
+            <form method="post" action="{{ url_for('manage.user_delete', user_id=u.id) }}" onsubmit="return confirm('Delete {{ u.username }}?')">
+                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Delete</button>
+            </form>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+{% endcall %}
+{% endblock %}

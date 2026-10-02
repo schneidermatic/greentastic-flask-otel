@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{% endblock %} · Greentastic</title>
+    <link href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-greentastic sticky-top shadow-sm">
+    <div class="container">
+        <a class="navbar-brand" href="{{ url_for('shop.home') }}"><i class="bi bi-basket2-fill me-2"></i>Greentastic</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav mb-2 mb-lg-0">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Categories</a>
+                    <ul class="dropdown-menu">
+                        {% for key, (label, _) in categories.items() %}
+                        <li><a class="dropdown-item" href="{{ url_for('shop.category', category=key) }}">{{ label }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </li>
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('shop.about') }}">About</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('shop.contact') }}">Contact</a></li>
+            </ul>
+
+            <form class="search-form position-relative flex-grow-1 my-2 my-lg-0 mx-lg-4" action="{{ url_for('shop.search_page') }}" role="search">
+                <div class="input-group">
+                    <input class="form-control" type="search" name="q" id="search-input" value="{{ q or '' }}"
+                           placeholder="Search fruits, vegetables, homemade, handcraft..." aria-label="Search products" autocomplete="off">
+                    <button class="btn btn-light" type="submit" aria-label="Search"><i class="bi bi-search"></i></button>
+                </div>
+                <ul class="list-group position-absolute w-100 shadow d-none" id="search-suggestions"></ul>
+            </form>
+
+            <ul class="navbar-nav align-items-lg-center">
+                <li class="nav-item"><a class="nav-link" href="{{ url_for('shop.cart') }}"><i class="bi bi-cart3"></i> Cart</a></li>
+                {% if session.username %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i> {{ session.username }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">My profile</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('shop.order_list') }}">My orders</a></li>
+                        {% if session.role in ('seller', 'admin') %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('manage.product_list') }}">Manage products</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('manage.order_list') }}">All orders</a></li>
+                        {% endif %}
+                        {% if session.role == 'admin' %}
+                        <li><a class="dropdown-item" href="{{ url_for('manage.user_list') }}">Users</a></li>
+                        {% endif %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Log out</a></li>
+                    </ul>
+                </li>
+                {% else %}
+                <li class="nav-item"><a class="btn btn-light btn-sm ms-lg-2" href="{{ url_for('auth.login') }}">Log in</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<main class="flex-grow-1">
+    {% block hero %}{% endblock %}
+    <div class="container py-4">
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% block content %}{% endblock %}
+    </div>
+</main>
+
+<footer class="bg-dark text-light pt-5 pb-3 mt-4">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-6 col-md-3">
+                <h6 class="text-success text-uppercase">Service</h6>
+                <ul class="list-unstyled small">
+                    <li><a class="link-light" href="{{ url_for('shop.home') }}">Home</a></li>
+                    <li><a class="link-light" href="{{ url_for('shop.about') }}">About Greentastic</a></li>
+                    <li><a class="link-light" href="{{ url_for('shop.contact') }}">Contact us</a></li>
+                    <li><a class="link-light" href="{{ url_for('static', filename='CREDITS.md') }}">Image credits</a></li>
+                </ul>
+            </div>
+            <div class="col-6 col-md-3">
+                <h6 class="text-success text-uppercase">Categories</h6>
+                <ul class="list-unstyled small">
+                    {% for key, (label, _) in categories.items() %}
+                    <li><a class="link-light" href="{{ url_for('shop.category', category=key) }}">{{ label }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-6 col-md-3">
+                <h6 class="text-success text-uppercase">My account</h6>
+                <ul class="list-unstyled small">
+                    <li><a class="link-light" href="{{ url_for('auth.profile') }}">My profile</a></li>
+                    <li><a class="link-light" href="{{ url_for('shop.cart') }}">My cart</a></li>
+                    <li><a class="link-light" href="{{ url_for('shop.order_list') }}">Order history</a></li>
+                    {% if session.username %}
+                    <li><a class="link-light" href="{{ url_for('auth.logout') }}">Log out</a></li>
+                    {% else %}
+                    <li><a class="link-light" href="{{ url_for('auth.login') }}">Log in</a></li>
+                    <li><a class="link-light" href="{{ url_for('auth.register') }}">Sign up</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+            <div class="col-6 col-md-3">
+                <h6 class="text-success text-uppercase">Follow us</h6>
+                <div class="fs-4">
+                    <a class="link-light me-2" href="https://www.facebook.com" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+                    <a class="link-light me-2" href="https://www.instagram.com" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+                    <a class="link-light me-2" href="https://x.com" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+                    <a class="link-light" href="https://www.whatsapp.com" aria-label="WhatsApp"><i class="bi bi-whatsapp"></i></a>
+                </div>
+            </div>
+        </div>
+        <hr class="border-secondary">
+        <p class="text-center text-secondary small mb-0">&copy; Greentastic - demo shop, no real orders</p>
+    </div>
+</footer>
+
+<script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/search.js') }}"></script>
+</body>
+</html>

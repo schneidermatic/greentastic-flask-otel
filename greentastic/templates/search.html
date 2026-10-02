@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "macros.html" import product_grid %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<h1 class="mb-4">Search{% if q %}: <span class="text-success">{{ q }}</span>{% endif %}</h1>
+{% if unavailable %}
+<div class="alert alert-warning">Search is currently unavailable. Please try again in a moment.</div>
+{% elif q and not results %}
+<p class="text-muted">No products found for "{{ q }}".</p>
+{% else %}
+{{ product_grid(results) }}
+{% endif %}
+{% endblock %}

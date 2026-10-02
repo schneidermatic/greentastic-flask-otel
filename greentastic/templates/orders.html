@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "macros.html" import table %}
+{% block title %}My orders{% endblock %}
+{% block content %}
+<h1 class="mb-4">My orders</h1>
+{% call table(['Order', 'Date', 'Products', 'Total', 'Status', '']) %}
+    {% for o in orders %}
+    <tr>
+        <td>#{{ o.id }}</td><td>{{ o.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ o.item_count }}</td>
+        <td>{{ o.total | euro }}</td><td><span class="badge text-bg-secondary">{{ o.status }}</span></td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-success" href="{{ url_for('shop.order_detail', order_id=o.id) }}">Details</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-center text-muted py-4">No orders yet.</td></tr>
+    {% endfor %}
+{% endcall %}
+{% endblock %}

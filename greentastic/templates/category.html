@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% from "macros.html" import product_grid %}
+{% block title %}{{ categories[category][0] }}{% endblock %}
+{% block content %}
+<h1 class="mb-4">{{ categories[category][0] }}</h1>
+{{ product_grid(products) }}
+{% endblock %}

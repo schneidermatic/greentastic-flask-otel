@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "macros.html" import form_card, field %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+{% call form_card('Log in', 'logi.png') %}
+<form method="post">
+    {{ field('User name', 'username') }}
+    {{ field('Password', 'password', 'password') }}
+    <button type="submit" class="btn btn-success w-100 mb-3">Log in</button>
+    <p class="text-center mb-0">No account yet? <a href="{{ url_for('auth.register') }}">Sign up</a></p>
+</form>
+{% endcall %}
+{% endblock %}
